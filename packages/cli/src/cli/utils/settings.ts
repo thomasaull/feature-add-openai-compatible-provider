@@ -34,6 +34,8 @@ export function getSettings(explicitApiKey: string | undefined): CliSettings {
     },
     llm: {
       openaiApiKey: env.OPENAI_API_KEY || systemFile.llm?.openaiApiKey,
+      openaiCompatibleApiKey:
+        env.OPENAI_COMPATIBLE_API_KEY || systemFile.llm?.openaiCompatibleApiKey,
       anthropicApiKey: env.ANTHROPIC_API_KEY || systemFile.llm?.anthropicApiKey,
       groqApiKey: env.GROQ_API_KEY || systemFile.llm?.groqApiKey,
       googleApiKey: env.GOOGLE_API_KEY || systemFile.llm?.googleApiKey,
@@ -70,6 +72,7 @@ const SettingsSchema = Z.object({
   }),
   llm: Z.object({
     openaiApiKey: Z.string().optional(),
+    openaiCompatibleApiKey: Z.string().optional(),
     anthropicApiKey: Z.string().optional(),
     groqApiKey: Z.string().optional(),
     googleApiKey: Z.string().optional(),
@@ -101,6 +104,7 @@ function _loadEnv() {
     LINGODOTDEV_API_URL: Z.string().optional(),
     LINGODOTDEV_WEB_URL: Z.string().optional(),
     OPENAI_API_KEY: Z.string().optional(),
+    OPENAI_COMPATIBLE_API_KEY: Z.string().optional(),
     ANTHROPIC_API_KEY: Z.string().optional(),
     GROQ_API_KEY: Z.string().optional(),
     GOOGLE_API_KEY: Z.string().optional(),
@@ -126,6 +130,7 @@ function _loadSystemFile() {
     }).optional(),
     llm: Z.object({
       openaiApiKey: Z.string().optional(),
+      openaiCompatibleApiKey: Z.string().optional(),
       anthropicApiKey: Z.string().optional(),
       groqApiKey: Z.string().optional(),
       googleApiKey: Z.string().optional(),
@@ -183,6 +188,13 @@ function _envVarsInfo() {
       `ℹ️  Using OPENAI_API_KEY env var instead of key from user config.`,
     );
   }
+  if (env.OPENAI_COMPATIBLE_API_KEY && systemFile.llm?.openaiCompatibleApiKey) {
+    console.info(
+      "\x1b[36m%s\x1b[0m",
+      `ℹ️  Using OPENAI_COMPATIBLE_API_KEY env var instead of key from user config.`,
+    );
+  }
+
   if (env.ANTHROPIC_API_KEY && systemFile.llm?.anthropicApiKey) {
     console.info(
       "\x1b[36m%s\x1b[0m",

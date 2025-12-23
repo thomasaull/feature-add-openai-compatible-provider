@@ -3,6 +3,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createMistral } from "@ai-sdk/mistral";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { I18nConfig } from "@lingo.dev/_spec";
 import chalk from "chalk";
 import dedent from "dedent";
@@ -40,6 +41,23 @@ export default function createExplicitLocalizer(
         id: provider.id,
         prompt: provider.prompt,
         apiKeyName: "OPENAI_API_KEY",
+        baseUrl: provider.baseUrl,
+        settings,
+      });
+
+    case "openai-compatible":
+      return createAiSdkLocalizer({
+        factory: (params) =>
+          createOpenAICompatible({
+            ...params,
+            name: "openai-compatible",
+            // TODO: Add better check if baseUrl is filled
+            // @ts-expect-error Needs better check
+            baseURL: params.baseUrl,
+          }).chatModel(provider.model),
+        id: provider.id,
+        prompt: provider.prompt,
+        apiKeyName: "OPENAI_COMPATIBLE_API_KEY",
         baseUrl: provider.baseUrl,
         settings,
       });

@@ -5,6 +5,7 @@ import { LocalizerFn } from "./_base";
 import { createLingoLocalizer } from "./lingo";
 import { createBasicTranslator } from "./basic";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { colors } from "../constants";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -80,6 +81,15 @@ function getPureModelProvider(provider: I18nConfig["provider"]) {
         baseURL: provider.baseUrl,
       })(provider.model);
     }
+    case "openai-compatible":
+      // TODO: Add better error message
+      if (!provider.baseUrl) throw new Error("Missing baseUrl");
+
+      return createOpenAICompatible({
+        name: "openai-compatible",
+        apiKey: process.env.OPENAI_COMPATIBLE_API_KEY,
+        baseURL: provider.baseUrl,
+      }).chatModel(provider.model);
     case "anthropic": {
       if (!process.env.ANTHROPIC_API_KEY) {
         throw new Error(

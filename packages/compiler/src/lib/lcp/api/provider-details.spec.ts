@@ -7,6 +7,7 @@ describe("provider-details", () => {
       "groq",
       "google",
       "openai",
+      "openai-compatible",
       "anthropic",
       "openrouter",
       "ollama",

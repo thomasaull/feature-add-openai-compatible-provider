@@ -6,7 +6,7 @@ export const providerDetails: Record<
     name: string; // Display name (e.g., "Groq", "Google")
     apiKeyEnvVar?: string; // Environment variable name (e.g., "GROQ_API_KEY")
     apiKeyConfigKey?: string; // Config key if applicable (e.g., "llm.groqApiKey")
-    getKeyLink: string; // Link to get API key
+    getKeyLink?: string; // Link to get API key
     docsLink: string; // Link to API docs for troubleshooting
   }
 > = {
@@ -31,6 +31,15 @@ export const providerDetails: Record<
     getKeyLink: "https://platform.openai.com/account/api-keys",
     docsLink: "https://platform.openai.com/docs",
   },
+  "openai-compatible": {
+    name: "OpenAI Compatible",
+    apiKeyEnvVar: "OPENAI_COMPATIBLE_API_KEY",
+    apiKeyConfigKey: "llm.openaiCompatibleApiKey",
+    getKeyLink: undefined,
+    docsLink:
+      "https://github.com/vercel/ai/tree/main/packages/openai-compatible",
+  },
+
   anthropic: {
     name: "Anthropic",
     apiKeyEnvVar: "ANTHROPIC_API_KEY",

@@ -292,6 +292,7 @@ export const configV1_4Definition = extendConfigDefinition(
 const providerSchema = Z.object({
   id: Z.enum([
     "openai",
+    "openai-compatible",
     "anthropic",
     "google",
     "ollama",
@@ -451,6 +452,7 @@ const modelSettingsSchema = Z.object({
 const providerSchemaV1_10 = Z.object({
   id: Z.enum([
     "openai",
+    "openai-compatible",
     "anthropic",
     "google",
     "ollama",
