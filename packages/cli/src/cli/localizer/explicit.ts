@@ -6,14 +6,16 @@ import { createMistral } from "@ai-sdk/mistral";
 import { I18nConfig } from "@lingo.dev/_spec";
 import chalk from "chalk";
 import dedent from "dedent";
-import { ILocalizer, LocalizerData } from "./_types";
+import { ILocalizer, LocalizerData, LocalizerProgressFn } from "./_types";
 import { LanguageModel, ModelMessage, generateText } from "ai";
 import { colors } from "../constants";
 import { jsonrepair } from "jsonrepair";
 import { createOllama } from "ollama-ai-provider-v2";
+import _ from "lodash";
 
 export default function createExplicitLocalizer(
   provider: NonNullable<I18nConfig["provider"]>,
+  options?: { batchSize?: number },
 ): ILocalizer {
   const settings = provider.settings || {};
 
@@ -42,6 +44,7 @@ export default function createExplicitLocalizer(
         apiKeyName: "OPENAI_API_KEY",
         baseUrl: provider.baseUrl,
         settings,
+        options,
       });
     case "anthropic":
       return createAiSdkLocalizer({
@@ -52,6 +55,7 @@ export default function createExplicitLocalizer(
         apiKeyName: "ANTHROPIC_API_KEY",
         baseUrl: provider.baseUrl,
         settings,
+        options,
       });
     case "google":
       return createAiSdkLocalizer({
@@ -62,6 +66,7 @@ export default function createExplicitLocalizer(
         apiKeyName: "GOOGLE_API_KEY",
         baseUrl: provider.baseUrl,
         settings,
+        options,
       });
     case "openrouter":
       return createAiSdkLocalizer({
@@ -72,6 +77,7 @@ export default function createExplicitLocalizer(
         apiKeyName: "OPENROUTER_API_KEY",
         baseUrl: provider.baseUrl,
         settings,
+        options,
       });
     case "ollama":
       return createAiSdkLocalizer({
@@ -80,6 +86,7 @@ export default function createExplicitLocalizer(
         prompt: provider.prompt,
         skipAuth: true,
         settings,
+        options,
       });
     case "mistral":
       return createAiSdkLocalizer({
@@ -90,6 +97,7 @@ export default function createExplicitLocalizer(
         apiKeyName: "MISTRAL_API_KEY",
         baseUrl: provider.baseUrl,
         settings,
+        options,
       });
   }
 }
@@ -102,6 +110,7 @@ function createAiSdkLocalizer(params: {
   baseUrl?: string;
   skipAuth?: boolean;
   settings?: { temperature?: number };
+  options?: { batchSize?: number };
 }): ILocalizer {
   const skipAuth = params.skipAuth === true;
 
@@ -167,7 +176,10 @@ function createAiSdkLocalizer(params: {
         return { valid: false, error: errorMessage };
       }
     },
-    localize: async (input: LocalizerData) => {
+    localize: async (
+      input: LocalizerData,
+      onProgress?: LocalizerProgressFn,
+    ) => {
       const systemPrompt = params.prompt
         .replaceAll("{source}", input.sourceLocale)
         .replaceAll("{target}", input.targetLocale);
@@ -209,46 +221,77 @@ function createAiSdkLocalizer(params: {
         ],
       ];
 
-      const hasHints = input.hints && Object.keys(input.hints).length > 0;
+      const translateBatch = async (
+        batchData: Record<string, string>,
+        batchHints: Record<string, string[]>,
+      ): Promise<Record<string, string>> => {
+        const hasHints = Object.keys(batchHints).length > 0;
 
-      const payload = {
-        sourceLocale: input.sourceLocale,
-        targetLocale: input.targetLocale,
-        data: input.processableData,
-        ...(hasHints && { hints: input.hints }),
+        const payload = {
+          sourceLocale: input.sourceLocale,
+          targetLocale: input.targetLocale,
+          data: batchData,
+          ...(hasHints && { hints: batchHints }),
+        };
+
+        const response = await generateText({
+          model,
+          ...params.settings,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: "OK" },
+            ...shots.flatMap(
+              ([userShot, assistantShot]) =>
+                [
+                  { role: "user", content: JSON.stringify(userShot) },
+                  { role: "assistant", content: JSON.stringify(assistantShot) },
+                ] as ModelMessage[],
+            ),
+            { role: "user", content: JSON.stringify(payload) },
+          ],
+        });
+
+        const result = JSON.parse(response.text);
+
+        // Handle both object and string responses
+        if (typeof result.data === "object" && result.data !== null) {
+          return result.data;
+        }
+
+        // Handle string responses - extract and repair JSON
+        const index = result.data.indexOf("{");
+        const lastIndex = result.data.lastIndexOf("}");
+        const trimmed = result.data.slice(index, lastIndex + 1);
+        const repaired = jsonrepair(trimmed);
+        const finalResult = JSON.parse(repaired);
+
+        return finalResult.data;
       };
 
-      const response = await generateText({
-        model,
-        ...params.settings,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...shots.flatMap(
-            ([userShot, assistantShot]) =>
-              [
-                { role: "user", content: JSON.stringify(userShot) },
-                { role: "assistant", content: JSON.stringify(assistantShot) },
-              ] as ModelMessage[],
-          ),
-          { role: "user", content: JSON.stringify(payload) },
-        ],
-      });
+      const batchSize = params.options?.batchSize;
 
-      const result = JSON.parse(response.text);
-
-      // Handle both object and string responses
-      if (typeof result.data === "object" && result.data !== null) {
-        return result.data;
+      if (!batchSize || batchSize <= 0) {
+        return translateBatch(input.processableData, input.hints);
       }
 
-      // Handle string responses - extract and repair JSON
-      const index = result.data.indexOf("{");
-      const lastIndex = result.data.lastIndexOf("}");
-      const trimmed = result.data.slice(index, lastIndex + 1);
-      const repaired = jsonrepair(trimmed);
-      const finalResult = JSON.parse(repaired);
+      const keys = Object.keys(input.processableData);
+      const batches = _.chunk(keys, batchSize);
+      const batchResults: Record<string, string> = {};
 
-      return finalResult.data;
+      for (const [batchIndex, batchKeys] of batches.entries()) {
+        const batchData = _.pick(input.processableData, batchKeys);
+        const batchHints = _.pick(input.hints, batchKeys);
+
+        const batchResult = await translateBatch(batchData, batchHints);
+        Object.assign(batchResults, batchResult);
+
+        if (onProgress) {
+          const progress = _.round(((batchIndex + 1) / batches.length) * 100);
+          onProgress(progress, batchData, batchResult);
+        }
+      }
+
+      return batchResults;
     },
   };
 }

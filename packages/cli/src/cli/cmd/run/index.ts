@@ -122,6 +122,11 @@ export default new Command()
     "--pseudo",
     "Enable pseudo-localization mode: automatically pseudo-translates all extracted strings with accented characters and visual markers without calling any external API. Useful for testing UI internationalization readiness",
   )
+  .option(
+    "--batch <size>",
+    "Process translation strings in batches of the specified size instead of all at once. Parameter has no effect, when the lingo.dev platform is used.",
+    (val: string) => parseInt(val),
+  )
   .action(async (args) => {
     let email: string | null = null;
     try {

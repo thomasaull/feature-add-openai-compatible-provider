@@ -52,7 +52,7 @@ export default async function setup(input: CmdRunContext) {
         task: async (ctx, task) => {
           const provider = ctx.flags.pseudo ? "pseudo" : ctx.config?.provider;
           const vNext = ctx.config?.vNext;
-          ctx.localizer = createLocalizer(provider, ctx.flags.apiKey, vNext);
+          ctx.localizer = createLocalizer(provider, ctx.flags.apiKey, vNext, { batchSize: ctx.flags.batch });
           if (!ctx.localizer) {
             throw new Error(
               "Could not create localization provider. Please check your i18n.json configuration.",
